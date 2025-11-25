@@ -1,61 +1,72 @@
-#ifndef PID_H
-#define PID_H
+#pragma once
+#include <Arduino.h>
 
-#include "Arduino.h"
-
-struct PIDContext {
-    float Kp; // Proportional gain
-    float Ki; // Integral gain
-    float Kd; // Derivative gain
-    float integral;
-    float previous_error;
-    float setpoint; // Desired value
-    float output; // Output value
-    unsigned long lastTime;
+struct PIDAxis {
+  float Kp;
+  float Ki;
+  float Kd;
+  float integral;
+  float previous_error;
 };
 
-class PID {
-    public:
-        PIDContext pitch;
-        PIDContext roll;
-        PIDContext yaw;
-        
-        void pid_setup(float Kp, float Ki, float Kd) {
-            // Initialize PID contexts for pitch, roll, and yaw
-            initializePID(pitch, Kp, Ki, Kd);
-            initializePID(roll, Kp, Ki, Kd);
-            initializePID(yaw, Kp, Ki, Kd);
-        }
-        
-        void pid_loop(float current_pitch, float current_roll, float current_yaw, float dt) {
-            pitch.setpoint = current_pitch; // Assuming setpoint is updated elsewhere
-            roll.setpoint = current_roll; // Assuming setpoint is updated elsewhere
-            yaw.setpoint = current_yaw; // Assuming setpoint is updated elsewhere
+class PIDController {
+public:
+  PIDAxis pitch;
+  PIDAxis roll;
+  PIDAxis yaw;
 
-            pitch.output = computePID(pitch, dt);
-            roll.output = computePID(roll, dt);
-            yaw.output = computePID(yaw, dt);
-        }
-    
-    private:
-        void initializePID(PIDContext &ctx, float Kp, float Ki, float Kd) {
-            ctx.Kp = Kp;
-            ctx.Ki = Ki;
-            ctx.Kd = Kd;
-            ctx.integral = 0.0;
-            ctx.previous_error = 0.0;
-            ctx.lastTime = millis();
-        }
-        
-        float computePID(PIDContext &ctx, float dt) {
-            float error = ctx.setpoint - ctx.output; // Calculate error
-            ctx.integral += error * dt; // Update integral
-            float derivative = (error - ctx.previous_error) / dt; // Calculate derivative
-            ctx.previous_error = error; // Update error history
+  void begin(float Kp_pr, float Ki_pr, float Kd_pr,
+             float Kp_y,  float Ki_y,  float Kd_y) {
+    initAxis(pitch, Kp_pr, Ki_pr, Kd_pr);
+    initAxis(roll,  Kp_pr, Ki_pr, Kd_pr);
+    initAxis(yaw,   Kp_y,  Ki_y,  Kd_y);
+  }
 
-            // Calculate PID output
-            return (ctx.Kp * error) + (ctx.Ki * ctx.integral) + (ctx.Kd * derivative);
-        }
+  float computePitch(float setpoint, float measurement, float dt) {
+    return compute(pitch, setpoint, measurement, dt);
+  }
+
+  float computeRoll(float setpoint, float measurement, float dt) {
+    return compute(roll, setpoint, measurement, dt);
+  }
+
+  float computeYaw(float setpoint, float measurement, float dt) {
+    return compute(yaw, setpoint, measurement, dt);
+  }
+
+  void reset() {
+    pitch.integral = 0.0f;
+    pitch.previous_error = 0.0f;
+    roll.integral = 0.0f;
+    roll.previous_error = 0.0f;
+    yaw.integral = 0.0f;
+    yaw.previous_error = 0.0f;
+  }
+
+private:
+  void initAxis(PIDAxis &axis, float Kp, float Ki, float Kd) {
+    axis.Kp = Kp;
+    axis.Ki = Ki;
+    axis.Kd = Kd;
+    axis.integral = 0.0f;
+    axis.previous_error = 0.0f;
+  }
+
+  float compute(PIDAxis &axis, float setpoint, float measurement, float dt) {
+    if (dt <= 0.0f) dt = 0.004f;
+
+    float error = setpoint - measurement;
+    axis.integral += error * dt;
+
+    // Anti-windup
+    axis.integral = constrain(axis.integral, -300.0f, 300.0f);
+
+    float derivative = (error - axis.previous_error) / dt;
+    axis.previous_error = error;
+
+    float out = axis.Kp * error + axis.Ki * axis.integral + axis.Kd * derivative;
+    // Limit PID correction to reasonable range for mixing
+    out = constrain(out, -200.0f, 200.0f);
+    return out;
+  }
 };
-
-#endif

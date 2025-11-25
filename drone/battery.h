@@ -1,29 +1,36 @@
-#define BAT_CYCLE 50000  // Time interval in microseconds between battery checks
-#define REFERENCE_VOLTAGE 5.0  // Default reference voltage
-#define VOLTAGE_DIVIDER_RATIO 2.5  // Ratio defined by the voltage divider circuit
-#define ADC_RESOLUTION 1023.0  // Resolution of ADC in Arduino
+#pragma once
+#include <Arduino.h>
 
-long timer_loop;  // Stores the last time the battery was checked
-float bat_v, bat_read = 0.0;  // Variables to store battery read and voltage
+#define BAT_CYCLE_US          50000UL      // 50ms between checks
+#define REFERENCE_VOLTAGE     5.0
+#define VOLTAGE_DIVIDER_RATIO 2.5
+#define ADC_RESOLUTION        1023.0
 
-float bat_offset = 4.8;  // Offset to calibrate voltage reading
+// Battery globals
+unsigned long bat_timer_loop = 0;
+float bat_v = 0.0f;
+float bat_read = 0.0f;
 
-void bat_setup() {
-  Serial.begin(115200);  // Begin serial communication at 115200 baud
+// Offset to calibrate voltage reading (tune in practice)
+float bat_offset = 4.8;
+
+void battery_setup() {
+  // Nothing needed beyond analog pin ready
+  // (Serial already started in main)
 }
 
-void bat_loop() {
-  // Check if enough time has passed since the last battery check
-  if (micros() - timer_loop >= BAT_CYCLE) {
-    timer_loop = micros();  // Update last checked time
-
-    // Read battery voltage from pin A6
-    bat_read = analogRead(A6);
-    // Calculate actual battery voltage
-    bat_v = VOLTAGE_DIVIDER_RATIO * (bat_read * bat_offset / ADC_RESOLUTION) * REFERENCE_VOLTAGE;
-
-    // Output the battery voltage to the serial monitor
-    Serial.print("Battery Voltage: ");
-    Serial.println(bat_v);
+void battery_loop() {
+  unsigned long now = micros();
+  if (now - bat_timer_loop < BAT_CYCLE_US) {
+    return;
   }
+  bat_timer_loop = now;
+
+  // Read battery voltage (adjust pin as needed; A6 as in your original code)
+  bat_read = analogRead(A6);
+  bat_v = VOLTAGE_DIVIDER_RATIO * (bat_read * bat_offset / ADC_RESOLUTION) * REFERENCE_VOLTAGE;
+}
+
+float battery_voltage() {
+  return bat_v;
 }
