@@ -89,7 +89,7 @@ void loop() {
 
   // 2) Handle arming / disarming based on sticks
   if (ready_to_arm()) {
-    update_arming_logic(rc_t, rc_y);
+    update_arming_logic(rc_t, rc_y, rc_r);
   } else {
     armed = false;
     motors_arm(false);
@@ -143,15 +143,17 @@ bool ready_to_arm() {
   return true;
 }
 
-void update_arming_logic(float throttle, float yaw) {
+void update_arming_logic(float throttle, float yaw, float roll) {
   bool throttle_low = (throttle < 5.0f);
   bool yaw_right    = (yaw > 20.0f);   // arm command
   bool yaw_left     = (yaw < -20.0f);  // disarm command
+  bool roll_right   = (roll > 20.0f);
+  bool roll_left    = (roll < -20.0f);
 
   unsigned long now_ms = millis();
 
   if (!armed) {
-    if (throttle_low && yaw_right) {
+    if (throttle_low && yaw_right && roll_right) {
       if (armCmdStart == 0) {
         armCmdStart = now_ms;
       }
@@ -165,7 +167,7 @@ void update_arming_logic(float throttle, float yaw) {
     }
     disarmCmdStart = 0;
   } else {
-    if (throttle_low && yaw_left) {
+    if (throttle_low && yaw_left && roll_left) {
       if (disarmCmdStart == 0) {
         disarmCmdStart = now_ms;
       }
